@@ -1,0 +1,1 @@
+import {mkdir,cp} from 'node:fs/promises';await mkdir('dist',{recursive:true});await cp('packages/invoicing-client/dist','dist',{recursive:true});await cp('services/invoicing/dist/worker.js','dist/worker.js');

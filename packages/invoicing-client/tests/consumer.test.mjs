@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {InvoicingClient,verifyInvoicingWebhook,signInvoicingWebhook} from '../dist/index.js';
+// An unrelated consumer imports only the public built package, without bindings.
+test('independent consumer issues, reads payment/PDF, and verifies signed callback',async()=>{
+ const requests=[],client=new InvoicingClient({baseUrl:'https://fixture-invoicing.example',token:'fixture-workload',fetch:async(url,options)=>{requests.push([url.pathname,options]);if(url.pathname.endsWith('/pdf'))return new Response(new Uint8Array([37,80,68,70]),{headers:{'Content-Type':'application/pdf'}});if(options.method==='POST')return Response.json({invoice_id:'fixture',issuance_state:'awaiting_reference'});return Response.json({invoice_id:'fixture',payment_state:'partially_paid',total_minor:'100',allocated_minor:'50',outstanding_minor:'50'});}});
+ await assert.rejects(client.raw('/\\evil.example'),/invalid_path/);
+ const command={customer_id:'second-consumer',issuer_profile_id:'issuer',source_ref:'order:fixture',kind:'one_off',currency:'CZK',lines:[{source_line_id:'x',description:'Fixture',quantity:'1',unit_minor:'100'}],delivery_policy:'automatic_customer_copy_owner'};
+ const issued=await client.createInvoice(command,'stable-order');assert.equal(issued.invoice_id,'fixture');assert.equal((await client.invoice('fixture')).outstanding_minor,'50');assert.equal((await client.pdf('fixture')).headers.get('Content-Type'),'application/pdf');assert.equal(requests[0][1].headers.Authorization,'Bearer fixture-workload');
+ const event={event_id:'fixture-event',delivery_id:'fixture-delivery',event_type:'invoice.payment_changed',event_version:1,occurred_at:new Date().toISOString(),app_id:'second-consumer',customer_id:'fixture',aggregate_version:2,data:{invoice_id:'fixture',payment_state:'partially_paid'}};
+ const body=JSON.stringify(event),signed=await signInvoicingWebhook(body,event.delivery_id,'fixture-secret'),headers=new Headers({'X-Invoicing-Timestamp':signed.timestamp,'X-Invoicing-Delivery-Id':event.delivery_id,'X-Invoicing-Key-Id':'current','X-Invoicing-Signature':signed.signature});
+ const args={bodyBytes:new TextEncoder().encode(body),headers,appId:'second-consumer',keys:{current:{secret:'fixture-secret'}}};assert.deepEqual(await verifyInvoicingWebhook(args),event);await assert.rejects(verifyInvoicingWebhook({...args,appId:'foreign'}));await assert.rejects(verifyInvoicingWebhook({...args,bodyBytes:new TextEncoder().encode(body+' ')}));await assert.rejects(verifyInvoicingWebhook({...args,nowSeconds:Number(signed.timestamp)+301}));await assert.rejects(verifyInvoicingWebhook({...args,keys:{current:{secret:'fixture-secret',expiresAt:1}}}));
+});

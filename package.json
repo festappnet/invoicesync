@@ -1,0 +1,53 @@
+{
+  "name": "@festapp/invoicesync",
+  "version": "0.1.0",
+  "description": "Independent invoicing Worker and typed client with immutable private PDFs and BankSync payment facts.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/festappnet/invoicesync.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cloudflare": "./dist/worker.js",
+    "./email-transport": "./packages/email-transport/src/aws.ts",
+    "./email-sigv4": "./packages/email-transport/src/aws-sigv4.ts"
+  },
+  "files": [
+    "dist",
+    "services/invoicing/migrations",
+    "packages/email-transport/src"
+  ],
+  "workspaces": [
+    "services/invoicing",
+    "packages/invoicing-client",
+    "packages/email-transport"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace packages/invoicing-client && npm run build --workspace services/invoicing && node scripts/package.mjs",
+    "typecheck": "npm run typecheck --workspace services/invoicing",
+    "test": "npm test --workspace services/invoicing && npm test --workspace packages/invoicing-client",
+    "test:db": "python -m unittest discover -s services/invoicing/tests -p 'test_*.py' -q",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@festapp/banksync": "0.2.5",
+    "@pdf-lib/fontkit": "1.1.1",
+    "pdf-lib": "1.17.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260730.1",
+    "@types/qrcode": "1.5.5",
+    "esbuild": "0.28.1",
+    "miniflare": "5.20261001.0-alpha",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

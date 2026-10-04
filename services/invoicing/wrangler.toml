@@ -1,0 +1,8 @@
+name = "shared-invoicing"
+main = "dist/worker.js"
+compatibility_date = "2026-10-01"
+[triggers]
+crons = ["*/2 * * * *"]
+[vars]
+ENVIRONMENT = "simulation"
+# Bind private INVOICE_ARTIFACTS R2 and RPC credentials via reviewed rollout manifest.
