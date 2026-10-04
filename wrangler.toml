@@ -2,8 +2,16 @@ name = "invoicesync"
 main = "dist/worker.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
+keep_vars = true
+[[routes]]
+pattern = "invoicesync.festapp.net"
+custom_domain = true
+[[r2_buckets]]
+binding = "INVOICE_ARTIFACTS"
+bucket_name = "invoicesync-artifacts"
 [triggers]
 crons = ["*/2 * * * *"]
 [vars]
 ENVIRONMENT = "live"
-# LIVE_ACTIVATION is set after real configuration is verified.
+RPC_ORIGIN = "https://catalogpilot-rpc.mendelio.net"
+CALLBACK_HOSTS = "catalogpilot.mendelio.net"
