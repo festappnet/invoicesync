@@ -6,7 +6,7 @@ Production evidence is recorded separately below; earlier local checks remain pr
 
 ## Required authority and configuration
 
-| Owner | Missing production evidence/configuration |
+| Owner | Required production evidence/configuration |
 |---|---|
 | Database operator | Dedicated invoicing gateway JWT role, executor ownership, exposed `invoicing_api` schema and registered aud/jti/expiry/scopes; migrations and backup authority |
 | Issuer | Confirmed legal name/address/company ID, actual VAT regime, contact and due days; supported initial regime is non-VAT/CZK |
@@ -27,7 +27,7 @@ CatalogPilot needs `INVOICING_ORIGIN`, `INVOICING_TOKEN`, `INVOICING_APP_ID` and
 verification keys must have a finite `expiresAt`; remove old BankSync secrets at the
 end of the operator's rotation window.
 
-## Ordered operations after separate authorization
+## Ordered rollout operations
 
 1. Inventory and back up current CatalogPilot finance/legacy invoices, service schema
    if present, BankSync D1 subscriptions/recovery state and permanent VS history.
@@ -97,6 +97,45 @@ Restored BankSync reference registries remain locked until verified again.
 | Existing BankSync imports/subscriptions | Preserved; optional registry and health API added |
 | Festapp/Mendelio independent allocators | Unchanged by user's optional-VS clarification |
 
-Legacy invoice details remain visible. Historical PDF artifacts absent from the old
-storage inventory remain an explicit rollout gap; new PDFs always come from stored
-service artifacts. This manifest is prepared, not executed.
+Legacy invoice details remain visible. Missing historical PDF artifacts must remain
+an explicit gap; new PDFs always come from stored service artifacts.
+
+## Executed production rollout - 2026-10-05
+
+- InvoiceSync is deployed at `https://invoicesync.festapp.net`; authoritative RPC
+  migrations and the additive CatalogPilot cutover are applied with backups.
+  CatalogPilot's mapping is enabled after its initial authoritative status.
+- InvoiceSync calls the existing BankSync exclusively through its public HTTPS API
+  at `https://banksync-api.festapp.net`, using a dedicated tenant credential.
+  There is no internal service binding. The existing Worker serves this custom
+  domain and preserves its workers.dev endpoint for existing clients.
+- BankSync runs package 0.2.7 and schema 12. Schema 11 was already present;
+  its verified migration-ledger entry was repaired before applying additive 12.
+  The isolated InvoiceSync consumer has its account grant and a subscription for
+  new facts. Existing consumers and subscriptions were preserved.
+- The permanent reference registry contains 4,754 historical exclusions without
+  conflicts. New InvoiceSync references use ten digits; the live Mendelio allocator
+  caps new references at nine digits. Legacy ten-digit references are imported.
+  Live checks verified retry idempotency, historical collision rejection and
+  rejection of another account. The marked probe reference remains reserved.
+- The issuer, non-VAT regime, receiving account and owner were confirmed against
+  Mendelio. CatalogPilot retains its existing simulation environment. Its buyer
+  billing profile still requires completion through the normal application flow.
+  No customer invoice or customer email was issued during rollout. Both legacy
+  and service invoice inventories were empty at rollout.
+- R2 public access is disabled and no custom bucket domain is configured. SES
+  uses a dedicated InvoiceSync IAM principal restricted to its sender,
+  configuration set and feedback queue. The exposed original AWS key was rotated
+  across its known consumers and deleted. A marked SES simulator send succeeded;
+  unrelated queue access, IAM management and an unapproved sender were denied.
+- A real cron cycle fetched healthy bank status through HTTPS and delivered
+  signed callbacks to CatalogPilot; its billing projection reports current status.
+  The outbound webhook key map stores strings, while CatalogPilot's receiver
+  `INVOICING_WEBHOOK_KEYS` stores `{ "v1": { "secret": "..." } }` records.
+- Validation passed: eight disposable PostgreSQL tests, four actual workerd
+  service tests and one independently built public-client test; BankSync
+  composition typecheck, wrapper test and owning changed-file suite passed.
+
+Registered application workload tokens expire on **2026-11-03T22:17:57Z**.
+Rotate both client and worker credentials and their secret bindings before expiry.
+Protected operational evidence and backups are retained outside Git.
