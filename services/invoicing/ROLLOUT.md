@@ -139,3 +139,14 @@ an explicit gap; new PDFs always come from stored service artifacts.
 Registered application workload tokens expire on **2026-11-03T22:17:57Z**.
 Rotate both client and worker credentials and their secret bindings before expiry.
 Protected operational evidence and backups are retained outside Git.
+
+## PDF presentation update - 2026-10-05
+
+Renderer `invoicing-2` gives invoice numbers an explicit label, shows the Czech
+account number and canonical IBAN next to the QR in both live and simulation PDFs,
+and uses clearer party, payment, item and total sections. Long descriptions wrap
+at word boundaries; unbroken tokens retain bounded wrapping. The displayed account
+is derived from the same validated IBAN used by the live SPAYD payload. Simulation
+QR codes remain non-payment markers. Previously stored PDF artifacts are preserved.
+Actual workerd checks decode both QR modes and verify printed payment details,
+invoice numbers and text bounds; an owner-authorized marked preview is sent separately.

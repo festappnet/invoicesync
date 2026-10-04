@@ -79,6 +79,6 @@ customer email and manual tax ID are not invented or overwritten.
 
 ## Rollout
 
-See [the concrete rollout manifest](ROLLOUT.md). This checkout is implemented and
-locally tested; it is not live. Wrangler defaults to simulation and contains no real
-issuer, account, bucket, credential, recipient or BankSync subscription.
+See [the concrete rollout manifest](ROLLOUT.md). Production deployment and verification evidence are recorded there.
+Production configuration uses secret bindings; no credentials are stored in Git.
+CatalogPilot currently retains its simulation application mode.
