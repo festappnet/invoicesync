@@ -1,2 +1,4 @@
 import {mkdir,cp} from 'node:fs/promises';await mkdir('dist',{recursive:true});await cp('packages/invoicing-client/dist','dist',{recursive:true});await cp('services/invoicing/dist/worker.js','dist/worker.js');
 import {build} from 'esbuild';import {execFileSync} from 'node:child_process';await build({entryPoints:['packages/email-transport/src/aws.ts','packages/email-transport/src/aws-sigv4.ts'],outdir:'dist/email',bundle:true,format:'esm',platform:'browser',target:'es2022'});execFileSync('npx',['tsc','--declaration','--emitDeclarationOnly','--outDir','dist/email','--skipLibCheck','--target','ES2022','--module','ESNext','--moduleResolution','Bundler','--allowImportingTsExtensions','--types','@cloudflare/workers-types','packages/email-transport/src/aws.ts','packages/email-transport/src/aws-sigv4.ts'],{stdio:'inherit'});
+
+await cp('services/invoicing/MANROPE-OFL.txt','dist/MANROPE-OFL.txt');

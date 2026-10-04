@@ -150,3 +150,7 @@ is derived from the same validated IBAN used by the live SPAYD payload. Simulati
 QR codes remain non-payment markers. Previously stored PDF artifacts are preserved.
 Actual workerd checks decode both QR modes and verify printed payment details,
 invoice numbers and text bounds; an owner-authorized marked preview is sent separately.
+
+## Canonical brand and typography - 2026-10-05
+
+Renderer `invoicing-3` embeds Manrope regular/bold subsets with the upstream OFL license. The app-scoped `BRANDS_JSON` binding accepts a 64-unit vector mark and optional outlined wordmark; CatalogPilot supplies its canonical `branding/catalogpilot.json` export. The service contains no CatalogPilot-specific logo geometry or remote asset fetch. Preflight and final PDF rendering use the same binding. Existing stored artifacts remain unchanged.

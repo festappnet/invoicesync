@@ -2,9 +2,9 @@
 import {PDFDocument,rgb,type PDFFont,type PDFPage} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import QR from 'qrcode/lib/core/qrcode.js';
-import {DEJAVU_SANS_BOLD_B64,DEJAVU_SANS_REGULAR_B64} from './fonts.ts';
+import {MANROPE_BOLD_B64,MANROPE_REGULAR_B64} from './fonts.ts';
 import type {InvoiceCommand,BillingProfile} from '../../../packages/invoicing-client/src/index.ts';
-export const RENDERER_VERSION='invoicing-2';
+export const RENDERER_VERSION='invoicing-3';
 export interface Snapshot {simulation:boolean;brand_name:string;number:string;issued_on:string;due_on:string;issuer:BillingProfile;buyer:BillingProfile;owner_email:string;account:{iban:string;physical_account_id:string};reference:{normalized_vs:string;reservation_id:string};command:InvoiceCommand;total_minor:string;tax_regime:'non_vat'}
 export function validIban(value:string){const iban=value.replace(/\s/g,'').toUpperCase();if(!/^CZ\d{22}$/.test(iban))throw Error('iban_invalid');if(BigInt((iban.slice(4)+iban.slice(0,4)).replace(/[A-Z]/g,c=>String(c.charCodeAt(0)-55)))%97n!==1n)throw Error('iban_invalid');return iban;}
 const amount=(v:string)=>{if(!/^\d{1,12}$/.test(v))throw Error('amount_invalid');const n=BigInt(v);return `${n/100n}.${String(n%100n).padStart(2,'0')}`;};
@@ -15,17 +15,18 @@ function wrap(font:PDFFont,value:string,width:number,size:number){
  if(/[\u0000-\u0008\u000b-\u001f]/.test(value))throw Error('unsupported_character');const supported=new Set(font.getCharacterSet());for(const c of value)if(c!=='\n'&&!supported.has(c.codePointAt(0)!))throw Error('unsupported_character');
  const result:string[]=[];for(const paragraph of value.split('\n')){let current='';const graphemes=[...new Intl.Segmenter('cs',{granularity:'grapheme'}).segment(paragraph)].map(x=>x.segment);for(const c of graphemes){if(font.widthOfTextAtSize(current+c,size)>width){const space=current.lastIndexOf(' ');if(space>0){result.push(current.slice(0,space).trimEnd());current=(current.slice(space+1)+c).trimStart();}else{result.push(current.trimEnd());current=c.trimStart();}}else current+=c;}result.push(current.trimEnd());}return result;
 }
-export async function renderInvoice(s:Snapshot):Promise<Uint8Array>{
+export interface InvoiceBrand {name:string;view_box:number;wordmark_paths?:{path:string;fill:string}[];paths:{path:string;fill:string}[]}
+export async function renderInvoice(s:Snapshot,brand?:InvoiceBrand):Promise<Uint8Array>{
  if(s.command.lines.length<1||s.command.lines.length>500)throw Error('document_too_large');const total=s.command.lines.reduce((sum,x)=>sum+BigInt(x.quantity)*BigInt(x.unit_minor),0n);if(total.toString()!==s.total_minor)throw Error('total_mismatch');
  const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);pdf.setCreationDate(new Date(s.issued_on+'T00:00:00Z'));pdf.setModificationDate(new Date(s.issued_on+'T00:00:00Z'));pdf.setTitle(s.number);pdf.setProducer(RENDERER_VERSION);pdf.setCreator(RENDERER_VERSION);
- const f=await pdf.embedFont(fontBytes(DEJAVU_SANS_REGULAR_B64),{subset:true}),b=await pdf.embedFont(fontBytes(DEJAVU_SANS_BOLD_B64),{subset:true});
+ const f=await pdf.embedFont(fontBytes(MANROPE_REGULAR_B64),{subset:true}),b=await pdf.embedFont(fontBytes(MANROPE_BOLD_B64),{subset:true});
  const W=595.28,H=841.89,L=48,R=W-L,ink=rgb(.12,.17,.23),teal=rgb(.05,.40,.38),pale=rgb(.95,.97,.97),muted=rgb(.39,.45,.49),rule=rgb(.86,.89,.90);let page:PDFPage=pdf.addPage([W,H]),y=44;
  const text=(v:string,x:number,top:number,size=9,font=f,color=ink)=>{wrap(font,v,2000,size);if(x<0||x+font.widthOfTextAtSize(v,size)>W||top<0||top+size>H)throw Error('text_bounds');page.drawText(v,{x,y:H-top-size,size,font,color});};
  const right=(v:string,x:number,top:number,size=9,font=f,color=ink)=>text(v,x-font.widthOfTextAtSize(v,size),top,size,font,color);
  const rect=(x:number,top:number,w:number,h:number,color=pale)=>page.drawRectangle({x,y:H-top-h,width:w,height:h,color});
  const lines=(values:string[],x:number,top:number,width:number)=>{let at=top;for(const [i,value]of values.entries())for(const line of wrap(i===0?b:f,value,width,i===0?11:9)){text(line,x,at,i===0?11:9,i===0?b:f);at+=i===0?15:13;}return at;};
  const party=(p:BillingProfile)=>[p.legal_name,p.address_line||'',p.postal_code+' '+p.city,p.country_code==='CZ'?'Česká republika':p.country_code,...(p.company_id?['IČO: '+p.company_id]:[]),...(p.tax_id?['DIČ: '+p.tax_id]:[])].filter(Boolean);
- rect(L,44,36,3,teal);text(s.brand_name,L,62,13,b,teal);right('FAKTURA',R,50,27,b);right('Číslo faktury: '+s.number,R,91,10,b);
+ if(brand){if(brand.view_box!==64||brand.paths.length>10||(brand.wordmark_paths?.length??0)>30)throw Error('brand_invalid');for(const shape of [...brand.paths,...(brand.wordmark_paths??[])]){if(!/^#[0-9a-fA-F]{6}$/.test(shape.fill)||shape.path.length>10000)throw Error('brand_invalid');const hex=shape.fill.slice(1);page.drawSvgPath(shape.path,{x:L,y:H-47,scale:32/brand.view_box,color:rgb(parseInt(hex.slice(0,2),16)/255,parseInt(hex.slice(2,4),16)/255,parseInt(hex.slice(4,6),16)/255)});}if(!brand.wordmark_paths?.length)text(brand.name,L+42,55,13,b,teal);}else{rect(L,44,36,3,teal);text(s.brand_name,L,62,13,b,teal);}right('FAKTURA',R,50,27,b);right('Číslo faktury: '+s.number,R,91,10,b);
  if(s.simulation){rect(L,103,176,24,pale);text('SIMULACE - NEPLATIT',L+10,111,8,b,teal);}else for(const [index,v] of wrap(f,s.command.period_start?`${s.command.period_start} - ${s.command.period_end_exclusive}`:s.command.source_ref,R-L,8).entries()){if(index>2)throw Error('document_too_large');text(v,L,110+index*12,8,f,muted);}
  rect(L,149,R-L,1,rule);text('DODAVATEL',L,171,8,b,muted);text('ODBĚRATEL',315,171,8,b,muted);y=Math.max(lines(party(s.issuer),L,192,230),lines(party(s.buyer),315,192,230))+24;
  if(y>420)throw Error('document_too_large');text('Vystaveno: '+s.issued_on,L,y,9,f,muted);right('Splatnost: '+s.due_on,R,y,9,b);y+=30;
