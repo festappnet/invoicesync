@@ -1,6 +1,6 @@
 {
   "name": "@festapp/invoicesync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Independent invoicing Worker and typed client with immutable private PDFs and BankSync payment facts.",
   "type": "module",
   "license": "MIT",
@@ -14,8 +14,14 @@
       "import": "./dist/index.js"
     },
     "./cloudflare": "./dist/worker.js",
-    "./email-transport": "./packages/email-transport/src/aws.ts",
-    "./email-sigv4": "./packages/email-transport/src/aws-sigv4.ts"
+    "./email-transport": {
+      "types": "./dist/email/aws.d.ts",
+      "import": "./dist/email/aws.js"
+    },
+    "./email-sigv4": {
+      "types": "./dist/email/aws-sigv4.d.ts",
+      "import": "./dist/email/aws-sigv4.js"
+    }
   },
   "files": [
     "dist",
