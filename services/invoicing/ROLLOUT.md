@@ -154,3 +154,5 @@ invoice numbers and text bounds; an owner-authorized marked preview is sent sepa
 ## Canonical brand and typography - 2026-10-05
 
 Renderer `invoicing-3` embeds Manrope regular/bold subsets with the upstream OFL license. The app-scoped `BRANDS_JSON` binding accepts a 64-unit vector mark and optional outlined wordmark; CatalogPilot supplies its canonical `branding/catalogpilot.json` export. The service contains no CatalogPilot-specific logo geometry or remote asset fetch. Preflight and final PDF rendering use the same binding. Existing stored artifacts remain unchanged.
+
+Large outlined wordmarks may be exported as `wordmark_paths_gzip` (base64 gzip of the wordmark path array) to fit Cloudflare text-binding limits. The runtime expands this trusted deployment configuration before both preflight and final rendering.

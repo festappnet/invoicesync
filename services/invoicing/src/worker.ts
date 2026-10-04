@@ -41,8 +41,14 @@ export function createService(transport:typeof fetch=fetch){return {
  async scheduled(_event:unknown,env:Env){active(env);for(const w of workloads(env)){try{await drain(env,w,transport);}catch{/* Durable RPC queues retain failures; do not log financial payloads. */}}}
 };}
 async function bankRequest(w:Workload,path:string,body:unknown,transport:typeof fetch){const r=await transport(new URL(path,httpsOrigin(w.banksync_origin)),{method:body===undefined?'GET':'POST',redirect:'manual',signal:AbortSignal.timeout(10000),headers:{'X-Tenant-Secret':w.banksync_token,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.ok){let code='banksync_unavailable';try{const v=await r.json() as any;if(['reference_conflict','reference_registry_locked','reference_exhausted','invalid_vs','reference_forbidden'].includes(v.error))code=v.error;}catch{}throw new RpcError(r.status,code);}return r.json() as Promise<any>;}
+export async function invoiceBrand(env:Pick<Env,'BRANDS_JSON'>,appId:string):Promise<InvoiceBrand|undefined>{
+ const configured=(JSON.parse(env.BRANDS_JSON??'{}') as Record<string,InvoiceBrand&{wordmark_paths_gzip?:string}>)[appId];if(!configured)return;
+ if(!configured.wordmark_paths_gzip)return configured;
+ const bytes=Uint8Array.from(atob(configured.wordmark_paths_gzip),c=>c.charCodeAt(0));const text=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();if(text.length>100000)throw Error('brand_invalid');
+ return {...configured,wordmark_paths:JSON.parse(text)};
+}
 export async function drain(env:Env,w:Workload,transport:typeof fetch=fetch){
- const call=(op:string,data:unknown={})=>serviceRpc(env,w.token,op,data,transport);active(env);const brand=(JSON.parse(env.BRANDS_JSON??'{}') as Record<string,InvoiceBrand>)[w.app_id];
+ const call=(op:string,data:unknown={})=>serviceRpc(env,w.token,op,data,transport);active(env);const brand=await invoiceBrand(env,w.app_id);
  try{const health=await bankRequest(w,`/bank-accounts/${w.bank_account_id}/account-health`,undefined,transport);await call('health',{...health,bank_account_id:w.bank_account_id});}catch{await call('health',{bank_account_id:w.bank_account_id,bank_observation_status:'unknown',bank_observed_through:null});}
  await call('schedule_sweep');
  for(const intent of await call('issue_list')){try{
