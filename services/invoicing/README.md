@@ -81,7 +81,9 @@ customer email and manual tax ID are not invented or overwritten.
 
 See [the concrete rollout manifest](ROLLOUT.md). Production deployment and verification evidence are recorded there.
 Production configuration uses secret bindings; no credentials are stored in Git.
-CatalogPilot currently retains its simulation application mode.
+CatalogPilot can switch its application to live billing after migration 004.
+Frozen simulation invoices remain visible but are excluded from live debt,
+overdue events and bank-payment matching; automatic simulation mail stays suppressed.
 
 Customer profiles can set `language` to `cs` or `en` (default `cs`). The immutable
 buyer profile determines PDF and email language. Invoice lines may provide

@@ -178,3 +178,21 @@ so a confirmed delivery reaches the application during the same invocation.
 Corrected marked owner test CP-2026-000002 reached provider-confirmed delivery;
 actual feedback was consumed and the signed application callback acknowledged
 automatically. Financial history and the original test artifact were preserved.
+
+## Live billing cutover - 2026-10-08
+
+Migration 004 makes frozen simulation invoices non-payable when an application
+is live. Customer debt summaries, overdue status/events and both automatic and
+manual bank allocation share the SQL `invoice_payable` predicate. Existing
+simulation-mode financial fixtures remain usable; immutable invoices, artifacts,
+payment facts and delivery history are retained. Switching modes does not replay
+old deliveries. A real PostgreSQL regression covers the transition, rejection of
+payment matching to a frozen simulation and automatic delivery of a new live
+invoice. All ten authority tests and actual workerd/client tests passed.
+
+CatalogPilot's owner explicitly authorized inclusion of all October 2026 usage.
+The production switch uses the existing settled monthly ledger, with no cutoff
+or amount reset. The two marked October test invoices must stay simulations.
+The first ordinary live October close is eligible from 2026-11-01 in Prague,
+after outstanding reservations settle. Production activation evidence is kept
+privately; no customer credentials are committed.

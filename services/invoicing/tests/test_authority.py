@@ -130,4 +130,34 @@ class AuthorityTests(PostgresCase):
   self.assertEqual(read['snapshot']['buyer']['language'],'en')
   self.assertTrue(read['simulation'])
 
+ def test_10_live_activation_excludes_frozen_simulations_and_preserves_live_billing(self):
+  self.call('profile_save',{'customer_id':'fixture','version':self.call('profile_get',{'customer_id':'fixture'})['version'],'profile':PROFILE})
+  with psycopg.connect(self.owner_dsn) as c:c.execute("UPDATE invoicing.applications SET environment='simulation' WHERE id='app-a'")
+  simulated=self.create('test:activation-simulation');self.issue(simulated,'665544')
+  with psycopg.connect(self.owner_dsn) as c:
+   c.execute('ALTER TABLE invoicing.invoices DISABLE TRIGGER invoice_freeze')
+   c.execute("UPDATE invoicing.invoices SET due_on=current_date-1 WHERE id=%s",(simulated,))
+   c.execute('ALTER TABLE invoicing.invoices ENABLE TRIGGER invoice_freeze')
+   c.execute("UPDATE invoicing.applications SET environment='live' WHERE id='app-a'")
+  status=self.call('customer_status',{'customer_id':'fixture'})
+  # This shared fixture also contains another genuine live invoice from test_06.
+  with psycopg.connect(self.owner_dsn) as c:
+   expected=c.execute("SELECT coalesce(sum(total_minor-allocated_minor),0)::text FROM invoicing.invoices WHERE app_id='app-a' AND customer_id='fixture' AND issuance_state='issued' AND snapshot->>'simulation'='false'").fetchone()[0]
+  self.assertEqual(status['open_total_minor'],expected)
+  self.assertNotIn(simulated,[x['invoice_id'] for x in status['overdue_invoices']])
+  self.assertFalse(self.call('invoice_get',{'invoice_id':simulated})['overdue'])
+  self.call('overdue_sweep')
+  self.assertFalse(any(x['event_type']=='invoice.overdue' and x['data']['invoice_id']==simulated for x in self.call('events')['events']))
+  self.assertEqual(self.call('deliver',{'invoice_id':simulated,'key':'test:no-live-resend'}),{})
+  self.assertEqual(self.call('invoice_get',{'invoice_id':simulated})['deliveries'],[])
+  event={'delivery_id':'live-money-for-simulation','data':{'bank_account_id':1,'amount_cents':200,'currency':'CZK','vs':'665544','raw_vs':'665544','identity_kind':'movement','transaction_id':'activation-money','source':'fio_api','date':'2026-10-08T12:00:00Z'}}
+  receipt=self.call('bank_receive',{'instance_id':'fixture-instance','consumer_id':'app-a','payload_hash':'e'*64,'envelope':event})
+  self.assertEqual(receipt['outcome'],'reconciliation_required')
+  self.assertEqual(self.call('invoice_get',{'invoice_id':simulated})['allocated_minor'],'0')
+  live=self.create('test:activation-live');self.issue(live,'665545')
+  self.assertFalse(self.call('invoice_get',{'invoice_id':live})['simulation'])
+  self.assertEqual(int(self.call('customer_status',{'customer_id':'fixture'})['open_total_minor']),int(expected)+200)
+  self.call('artifact_ready',{'invoice_id':live,'object_key':'fixture/live.pdf','sha256':'b'*64,'renderer_version':'fixture','bytes':100})
+  self.assertTrue(self.call('invoice_get',{'invoice_id':live})['deliveries'])
+
 def load_tests(loader,tests,pattern):return unittest.TestSuite(AuthorityTests(name) for name in AuthorityTests.__dict__ if name.startswith('test_'))
