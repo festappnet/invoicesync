@@ -6,7 +6,7 @@ import {signInvoicingWebhook} from '../../../packages/invoicing-client/src/index
 import {awsRequest,type AwsEnv} from '../../../packages/email-transport/src/aws.ts';
 import {sha256} from '../../../packages/email-transport/src/aws-sigv4.ts';
 export interface Workload {app_id:string;token:string;banksync_origin:string;banksync_token:string;bank_account_id:number;instance_id:string;consumer_id:string;pairing_code:string;bank_secrets:string[];webhook_keys:Record<string,string>;email_from?:string;email_configuration_set?:string;feedback_queue_url?:string}
-export interface Env extends AwsEnv {RPC_ORIGIN:string;RPC_APIKEY?:string;WORKLOADS_JSON?:string;BRANDS_JSON?:string;CALLBACK_HOSTS?:string;ENVIRONMENT:'simulation'|'live';LIVE_ACTIVATION?:string;INVOICE_ARTIFACTS?:R2Bucket}
+export interface Env extends AwsEnv {RPC_ORIGIN:string;RPC_APIKEY?:string;WORKLOADS_JSON?:string;BRANDS_JSON?:string;EMAIL_LOGOS_JSON?:string;CALLBACK_HOSTS?:string;ENVIRONMENT:'simulation'|'live';LIVE_ACTIVATION?:string;INVOICE_ARTIFACTS?:R2Bucket}
 export class RpcError extends Error {readonly status:number;constructor(status:number,code:string){super(code);this.status=status;}}
 function httpsOrigin(value:string){const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||u.port)throw Error('invalid_origin');return u;}
 export async function serviceRpc(env:Env,token:string,op:string,request:unknown={},transport:typeof fetch=fetch):Promise<any>{
@@ -42,8 +42,9 @@ export function createService(transport:typeof fetch=fetch){return {
  async scheduled(_event:unknown,env:Env){active(env);for(const w of workloads(env)){try{await drain(env,w,transport);}catch{/* Durable RPC queues retain failures; do not log financial payloads. */}}}
 };}
 async function bankRequest(w:Workload,path:string,body:unknown,transport:typeof fetch){const r=await transport(new URL(path,httpsOrigin(w.banksync_origin)),{method:body===undefined?'GET':'POST',redirect:'manual',signal:AbortSignal.timeout(10000),headers:{'X-Tenant-Secret':w.banksync_token,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.ok){let code='banksync_unavailable';try{const v=await r.json() as any;if(['reference_conflict','reference_registry_locked','reference_exhausted','invalid_vs','reference_forbidden'].includes(v.error))code=v.error;}catch{}throw new RpcError(r.status,code);}return r.json() as Promise<any>;}
-export async function invoiceBrand(env:Pick<Env,'BRANDS_JSON'>,appId:string):Promise<InvoiceBrand|undefined>{
+export async function invoiceBrand(env:Pick<Env,'BRANDS_JSON'|'EMAIL_LOGOS_JSON'>,appId:string):Promise<InvoiceBrand|undefined>{
  const configured=(JSON.parse(env.BRANDS_JSON??'{}') as Record<string,InvoiceBrand&{wordmark_paths_gzip?:string}>)[appId];if(!configured)return;
+ configured.email_logo_png=(JSON.parse(env.EMAIL_LOGOS_JSON??'{}') as Record<string,string>)[appId]??configured.email_logo_png;
  if(!configured.wordmark_paths_gzip)return configured;
  const bytes=Uint8Array.from(atob(configured.wordmark_paths_gzip),c=>c.charCodeAt(0));const text=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();if(text.length>100000)throw Error('brand_invalid');
  return {...configured,wordmark_paths:JSON.parse(text)};

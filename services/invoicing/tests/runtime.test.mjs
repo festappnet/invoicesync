@@ -21,5 +21,5 @@ test('official ARES mapping preserves identity, optional tax ID and address with
 test('compressed brand exports retain the same wordmark and app isolation',async()=>{
  const {invoiceBrand}=await import('../src/worker.ts');const {gzipSync}=await import('node:zlib');
  const wordmark=[{path:'M0 0H10V10H0Z',fill:'#142D3B'}];const brand={name:'Test brand',view_box:64,paths:[],wordmark_paths_gzip:gzipSync(JSON.stringify(wordmark)).toString('base64')};
- const env={BRANDS_JSON:JSON.stringify({fixture:brand})};assert.deepEqual((await invoiceBrand(env,'fixture')).wordmark_paths,wordmark);assert.equal(await invoiceBrand(env,'another-app'),undefined);
+ const env={BRANDS_JSON:JSON.stringify({fixture:brand}),EMAIL_LOGOS_JSON:JSON.stringify({fixture:'fixture-png'})};assert.equal((await invoiceBrand(env,'fixture')).email_logo_png,'fixture-png');assert.deepEqual((await invoiceBrand(env,'fixture')).wordmark_paths,wordmark);assert.equal(await invoiceBrand(env,'another-app'),undefined);
 });
