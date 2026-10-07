@@ -169,3 +169,12 @@ localizes PDF labels, dates and optional English line descriptions. Migration
 views for application projections. Feedback consumes bounded multiple batches;
 provider validation and older preview messages no longer occupy the only batch.
 Targeted real PostgreSQL tests and actual workerd delivery tests passed.
+
+Live rollout completed at Worker `a92a0a73-e5c0-49f8-bf7a-5f20d780e3f4`
+(runtime main `dba7e6e`), after backup and additive migration 003. CatalogPilot
+vectors and inline email PNG are independently bound in `BRANDS_JSON` and
+`EMAIL_LOGOS_JSON` under their 5 KB limits. Feedback runs before webhook draining
+so a confirmed delivery reaches the application during the same invocation.
+Corrected marked owner test CP-2026-000002 reached provider-confirmed delivery;
+actual feedback was consumed and the signed application callback acknowledged
+automatically. Financial history and the original test artifact were preserved.
