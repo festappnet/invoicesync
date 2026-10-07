@@ -196,3 +196,13 @@ or amount reset. The two marked October test invoices must stay simulations.
 The first ordinary live October close is eligible from 2026-11-01 in Prague,
 after outstanding reservations settle. Production activation evidence is kept
 privately; no customer credentials are committed.
+
+Activation completed after private backup and application of published main
+`eb78d31` migration 004. The CatalogPilot application is `live` and its customer
+limit has `simulation=false`; existing amount limits and October usage were
+preserved. A fresh public billing-status response reported zero open/overdue
+debt and healthy bank observation, and the registered CatalogPilot RPC accepted
+that projection. Both historical simulations remain immutable and delivered,
+with no pending old delivery. No new invoice was fabricated for the open month.
+The existing two-minute CatalogPilot schedule closes completed months; October
+has no prior close snapshot, so its full settled usage remains eligible.
