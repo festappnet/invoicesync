@@ -118,4 +118,16 @@ class AuthorityTests(PostgresCase):
   pay(0);self.assertEqual(self.call('customer_status',{'customer_id':'two-debts'})['overdue_total_minor'],'200')
   pay(1);self.assertEqual(self.call('customer_status',{'customer_id':'two-debts'})['overdue_total_minor'],'0')
 
+
+ def test_09_customer_language_is_validated_persisted_and_frozen(self):
+  profile=self.call('profile_get',{'customer_id':'fixture'})
+  with self.assertRaises(psycopg.errors.InvalidParameterValue):
+   self.call('profile_save',{'customer_id':'fixture','version':profile['version'],'profile':{**PROFILE,'language':'de'}})
+  saved=self.call('profile_save',{'customer_id':'fixture','version':profile['version'],'profile':{**PROFILE,'language':'en'}})
+  self.assertEqual(saved['profile']['language'],'en')
+  invoice=self.create('test:english');self.issue(invoice,vs='778899')
+  read=self.call('invoice_get',{'invoice_id':invoice})
+  self.assertEqual(read['snapshot']['buyer']['language'],'en')
+  self.assertTrue(read['simulation'])
+
 def load_tests(loader,tests,pattern):return unittest.TestSuite(AuthorityTests(name) for name in AuthorityTests.__dict__ if name.startswith('test_'))

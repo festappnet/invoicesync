@@ -156,3 +156,16 @@ invoice numbers and text bounds; an owner-authorized marked preview is sent sepa
 Renderer `invoicing-3` embeds Manrope regular/bold subsets with the upstream OFL license. The app-scoped `BRANDS_JSON` binding accepts a 64-unit vector mark and optional outlined wordmark; CatalogPilot supplies its canonical `branding/catalogpilot.json` export. The service contains no CatalogPilot-specific logo geometry or remote asset fetch. Preflight and final PDF rendering use the same binding. Existing stored artifacts remain unchanged.
 
 Large outlined wordmarks may be exported as `wordmark_paths_gzip` (base64 gzip of the wordmark path array) to fit Cloudflare text-binding limits. The runtime expands this trusted deployment configuration before both preflight and final rendering.
+
+## Customer delivery corrections - 2026-10-08
+
+The previous mail used the transport's InvoiceSync display name and terse raw
+payment instructions. Delivery now derives its brand from app configuration,
+uses Czech or English according to the frozen buyer profile, sends HTML plus
+plain text, embeds the app logo and distinguishes simulation from payment.
+Renderer `invoicing-4` supports the canonical cube's stroked vector paths and
+localizes PDF labels, dates and optional English line descriptions. Migration
+003 validates the profile language and exposes simulation/period in invoice
+views for application projections. Feedback consumes bounded multiple batches;
+provider validation and older preview messages no longer occupy the only batch.
+Targeted real PostgreSQL tests and actual workerd delivery tests passed.

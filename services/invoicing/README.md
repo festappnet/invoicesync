@@ -82,3 +82,12 @@ customer email and manual tax ID are not invented or overwritten.
 See [the concrete rollout manifest](ROLLOUT.md). Production deployment and verification evidence are recorded there.
 Production configuration uses secret bindings; no credentials are stored in Git.
 CatalogPilot currently retains its simulation application mode.
+
+Customer profiles can set `language` to `cs` or `en` (default `cs`). The immutable
+buyer profile determines PDF and email language. Invoice lines may provide
+`description_en`; the application owns both descriptions. App-scoped branding
+supplies the sender display name, canonical vector logo and inline email PNG.
+Simulation emails explicitly say not to pay. Automatic simulation delivery
+remains suppressed; an operator may queue one audited owner-authorized test.
+Feedback drains up to three batches of ten messages per scheduled invocation so
+old validation/preview messages do not prevent delivery events being processed.

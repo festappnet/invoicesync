@@ -1,0 +1,21 @@
+import type {Snapshot,InvoiceBrand} from './render.ts';
+const escape=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+export function invoiceEmail(s:Snapshot,brand:InvoiceBrand|undefined,from:string,ownerCopy:boolean,pdfBase64:string){
+ const english=s.buyer.language==='en',label=(cs:string,en:string)=>english?en:cs;
+ const name=brand?.name??s.brand_name,email=from.match(/<([^<>]+)>$/)?.[1]??from;
+ if(/[\r\n<>]/.test(name)||!/^\S+@\S+\.\S+$/.test(email)||/[\r\n<>]/.test(email))throw Error('email_sender_invalid');
+ const moneyCs=`${(BigInt(s.total_minor)/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')},${String(BigInt(s.total_minor)%100n).padStart(2,'0')} Kč`;
+ const money=english?`${(BigInt(s.total_minor)/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')}.${String(BigInt(s.total_minor)%100n).padStart(2,'0')} CZK`:moneyCs;
+ const period=s.command.period_start?new Intl.DateTimeFormat(english?'en-GB':'cs-CZ',{month:'long',year:'numeric',timeZone:'Europe/Prague'}).format(new Date(s.command.period_start+'T12:00:00Z')):null;
+ const date=new Intl.DateTimeFormat(english?'en-GB':'cs-CZ',{day:'numeric',month:'numeric',year:'numeric',timeZone:'Europe/Prague'}).format(new Date(s.due_on+'T12:00:00Z'));
+ const subject=`${ownerCopy?label('[Kopie] ','[Copy] '):''}${name} - ${s.simulation?label('simulované vyúčtování','simulated statement'):label('faktura','invoice')}${period?label(' za ',' for ')+period:''} (${s.number})`;
+ const introCs=`v příloze posíláme ${s.simulation?'testovací vyúčtování':'fakturu'} za služby ${name}${period?label(' za ',' for ')+period:''}.`;
+ const intro=english?`Please find attached your ${s.simulation?'test statement':'invoice'} for ${name}${period?' for '+period:''}.`:introCs;
+ const detailCs=s.simulation?'Jde o simulaci pro ověření vystavení a doručení faktury. Částku prosím neplaťte. PDF je označené SIMULACE - NEPLATIT a QR kód neslouží k platbě.':`Prosíme o úhradu do ${date} na účet ${s.account.iban} s variabilním symbolem ${s.reference.normalized_vs}. V PDF najdete i QR kód pro platbu.`;
+ const detail=english?(s.simulation?'This is a simulation to test invoice creation and delivery. Please do not pay. The PDF is marked SIMULATION - DO NOT PAY and the QR code is not a payment code.':`Please pay by ${date} to account ${s.account.iban}, using payment reference ${s.reference.normalized_vs}. A payment QR code is included in the PDF.`):detailCs;
+ const greeting=label('Dobrý den,','Hello,'),numberLabel=label('Číslo faktury','Invoice number'),amountLabel=label('Částka','Amount'),help=label('Pokud máte k vyúčtování dotaz, odpovězte na tento email.','If you have a question about this invoice, please reply to this email.'),thanks=label('Děkujeme,','Thank you,');
+ const text=`${greeting}\n\n${intro}\n\n${numberLabel}: ${s.number}\n${amountLabel}: ${money}\n\n${detail}\n\n${help}\n\n${thanks}\n${name}\n${s.issuer.email}`;
+ const logo=brand?.email_logo_png?'<img src="cid:invoice-brand" width="240" alt="'+escape(name)+'" style="display:block;height:auto;margin-bottom:28px">':'<p style="font-size:24px;font-weight:700;color:#172e40">'+escape(name)+'</p>';
+ const html=`<!doctype html><html lang="${english?'en':'cs'}"><body style="margin:0;background:#f4f7f8;color:#172e40;font-family:Arial,sans-serif"><main style="max-width:580px;margin:32px auto;padding:32px;background:#fff;border-radius:12px">${logo}<p>${greeting}</p><p>${escape(intro)}</p><p style="padding:18px;background:#f2f7f6;border-left:3px solid #087c72"><strong>${escape(s.number)}</strong><br><span style="font-size:24px;font-weight:700">${escape(money)}</span></p><p>${escape(detail)}</p><p>${help}</p><p>${thanks}<br><strong>${escape(name)}</strong></p></main></body></html>`;
+ return {from:`${name} <${email}>`,replyTo:s.issuer.email,content:{Simple:{Subject:{Data:subject,Charset:'UTF-8'},Body:{Text:{Data:text,Charset:'UTF-8'},Html:{Data:html,Charset:'UTF-8'}},Attachments:[{RawContent:pdfBase64,FileName:s.number+'.pdf',ContentType:'application/pdf',ContentDisposition:'ATTACHMENT',ContentTransferEncoding:'BASE64'},...(brand?.email_logo_png?[{RawContent:brand.email_logo_png,FileName:'logo.png',ContentType:'image/png',ContentDisposition:'INLINE',ContentId:'invoice-brand',ContentTransferEncoding:'BASE64'}]:[])]}}};
+}

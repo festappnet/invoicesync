@@ -1,0 +1,13 @@
+BEGIN;
+CREATE OR REPLACE FUNCTION invoicing.validate_profile(p jsonb) RETURNS void LANGUAGE plpgsql AS $$ BEGIN
+ IF p ? 'language' AND (p->>'language' IS NULL OR p->>'language' NOT IN('cs','en')) THEN RAISE EXCEPTION 'profile_language_invalid' USING ERRCODE='22023'; END IF;
+ IF p IS NULL OR p->>'party_type' NOT IN('company','person') OR length(COALESCE(p->>'legal_name','')) NOT BETWEEN 1 AND 500 OR length(COALESCE(p->>'city','')) NOT BETWEEN 1 AND 200 OR length(COALESCE(p->>'postal_code','')) NOT BETWEEN 1 AND 20 OR p->>'country_code'<>'CZ' OR COALESCE(p->>'email','')!~'^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR (p->>'party_type'='company' AND COALESCE(p->>'company_id','')!~'^\d{8}$') THEN RAISE EXCEPTION 'profile_incomplete' USING ERRCODE='22023'; END IF;
+END $$;
+ALTER FUNCTION invoicing.validate_profile(jsonb) OWNER TO invoicing_executor;
+REVOKE ALL ON FUNCTION invoicing.validate_profile(jsonb) FROM PUBLIC;
+CREATE OR REPLACE FUNCTION invoicing.invoice_view(p_id uuid) RETURNS jsonb LANGUAGE sql SET search_path=invoicing,pg_catalog AS $$
+ SELECT jsonb_build_object('invoice_id',id,'customer_id',customer_id,'simulation',COALESCE((snapshot->>'simulation')::boolean,(SELECT environment='simulation' FROM applications WHERE applications.id=i.app_id)),'period',left(command->>'period_start',7),'issuance_state',issuance_state,'artifact_state',artifact_state,'delivery_state',delivery_state,'deliveries',(SELECT COALESCE(jsonb_agg(jsonb_build_object('recipient_role',d.recipient_role,'state',d.state,'incident',d.incident) ORDER BY d.created_at,d.id),'[]') FROM delivery_outbox d WHERE d.app_id=i.app_id AND d.invoice_id=i.id),'number',number,'total_minor',total_minor::text,'allocated_minor',allocated_minor::text,'outstanding_minor',(total_minor-allocated_minor)::text,'currency',currency,'payment_state',CASE WHEN allocated_minor=total_minor THEN 'paid' WHEN allocated_minor>0 THEN 'partially_paid' ELSE 'unpaid' END,'payment_version',payment_version,'paid_at',paid_at,'due_on',due_on,'overdue',COALESCE(due_on<(now() AT TIME ZONE 'Europe/Prague')::date AND allocated_minor<total_minor,false),'as_of',now(),'reconciliation_required',EXISTS(SELECT 1 FROM bank_movements m WHERE m.app_id=i.app_id AND m.physical_account_id=i.physical_account_id AND m.normalized_vs=i.normalized_vs AND m.reconciliation_required),'snapshot',snapshot,'incident',incident) FROM invoices i WHERE id=p_id AND app_id=current_setting('invoicing.app_id')
+$$;
+ALTER FUNCTION invoicing.invoice_view(uuid) OWNER TO invoicing_executor;
+REVOKE ALL ON FUNCTION invoicing.invoice_view(uuid) FROM PUBLIC;
+COMMIT;
