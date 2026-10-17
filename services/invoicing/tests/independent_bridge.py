@@ -15,10 +15,11 @@ try:
    if request['op']=='close':print(json.dumps({'value':True}),flush=True);break
    if request['op']=='fixture_banksync':
     with psycopg.connect(case.owner_dsn) as c:c.execute("UPDATE invoicing.receiving_accounts SET reference_mode='banksync' WHERE app_id='second-consumer'")
+    with psycopg.connect(case.owner_dsn) as c:c.execute("INSERT INTO invoicing.reference_exclusions VALUES('second-consumer-physical','12345','fixture:historical','fixture-hash')")
     result={'ok':True}
    else:result=case.call(request['op'],request.get('request',{}),app='second-consumer')
    print(json.dumps({'value':result}),flush=True)
-  except Exception as e:print(json.dumps({'error':str(e),'code':getattr(e,'sqlstate',None)}),flush=True)
+  except Exception as e:print(json.dumps({'error':getattr(getattr(e,'diag',None),'message_primary',None) or str(e),'code':getattr(e,'sqlstate',None)}),flush=True)
 except Exception:traceback.print_exc(file=sys.stderr)
 finally:
  if hasattr(AuthorityTests,'tmp'):AuthorityTests.tearDownClass()

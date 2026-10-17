@@ -50,15 +50,16 @@ unknown never automatically resends. Accepted SES is not delivered. Feedback is
 applied independently per recipient, with bounce/complaint suppression. If customer
 and owner share an address, one intent covers the same document/address.
 
-The explicit account mode `service` allocates permanent references in the service's
-PostgreSQL registry. `provided` requires a caller's symbol; `banksync` is the default and
-reserves a generated or requested `variable_symbol` through existing BankSync.
-Modes are server configuration, with no fallback. BankSync may reject a requested
-symbol with `reference_conflict` (409). The command stays blocked without a number
-or replacement symbol, exposes that incident and requires a corrected new command.
-Permanent claims are never reused. BankSync registry uniqueness covers its enrolled
-and imported references; independent writers are outside that guarantee. Activating
-any shared account therefore requires evidence for the chosen symbol namespace.
+The default account mode `service` allocates permanent references in InvoiceSync's
+PostgreSQL registry. `provided` requires a caller's symbol. Historical `banksync`
+configuration now uses the same owned SQL allocator after an explicit history
+adoption; it makes no reservation HTTP request. A frozen BankSync registry export
+is imported as permanent exclusions, and matching pending reservations are adopted
+only when consumer, source, account and payload hash agree. Historical invoices
+and claims remain immutable. No symbols are silently substituted after conflicts.
+The migration starts legacy namespaces locked. The adoption tool emits reviewable
+SQL with a snapshot digest and keeps their existing ten-digit allocation range.
+Independent applications must retain their agreed disjoint ranges on shared accounts.
 
 Webhook signature covers timestamp, delivery ID and original body bytes. The public
 verifier supports bounded key rotation; recipients persist their inbox receipt and

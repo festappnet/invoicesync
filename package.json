@@ -1,6 +1,6 @@
 {
   "name": "@festapp/invoicesync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Independent invoicing Worker and typed client with immutable private PDFs and BankSync payment facts.",
   "type": "module",
   "license": "MIT",
@@ -41,7 +41,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@festapp/banksync": "0.2.5",
+    "@festapp/banksync": "0.4.0",
     "@pdf-lib/fontkit": "1.1.1",
     "pdf-lib": "1.17.1",
     "qrcode": "1.5.4"

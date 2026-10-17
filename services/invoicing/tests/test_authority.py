@@ -29,6 +29,7 @@ class AuthorityTests(PostgresCase):
  def create(self,source='test:one',app='app-a'):
   return self.call('invoice_create',{'command':{**COMMAND,'source_ref':source},'key':source},app)['invoice_id']
  def issue(self,id,vs='12345',app='app-a'):
+  with psycopg.connect(self.owner_dsn) as c:c.execute("INSERT INTO invoicing.payment_reference_claims VALUES(%s,%s,%s,%s,'service',%s) ON CONFLICT DO NOTHING",(app,id,app+'-physical',vs,id))
   return self.call('issue',{'invoice_id':id,'reference':{'reservation_id':id,'physical_account_id':app+'-physical','source_ref':next(x['source_ref'] for x in self.call('issue_list',app=app) if x['invoice_id']==id),'normalized_vs':vs,'app_id':app,'payload_hash':next(x['payload_hash'] for x in self.call('issue_list',app=app) if x['invoice_id']==id)}},app)
  def test_01_concurrent_idempotence_and_second_consumer(self):
   with ThreadPoolExecutor(4) as pool:ids=list(pool.map(lambda _:self.create(),range(8)))
@@ -53,7 +54,7 @@ class AuthorityTests(PostgresCase):
    c.execute('SET LOCAL ROLE invoicing_gateway')
    with self.assertRaises(psycopg.errors.InsufficientPrivilege):c.execute("UPDATE invoicing.invoices SET allocated_minor=200")
  def test_05_optional_service_and_provided_references(self):
-  with psycopg.connect(self.owner_dsn) as c:c.execute("UPDATE invoicing.receiving_accounts SET reference_mode='service' WHERE app_id='second-consumer'")
+  with psycopg.connect(self.owner_dsn) as c:c.execute("UPDATE invoicing.receiving_accounts SET reference_mode='service' WHERE app_id='second-consumer'; UPDATE invoicing.reference_namespaces SET ready=true,history_sha256=repeat('a',64),adopted_at=now() WHERE physical_account_id='second-consumer-physical'")
   id=self.create('test:local',app='second-consumer');reference=self.call('service_reference',{'invoice_id':id},'second-consumer')
   self.assertEqual(self.call('service_reference',{'invoice_id':id},'second-consumer'),reference)
   self.assertTrue(reference['reservation_id'].startswith('service:'))
@@ -159,5 +160,40 @@ class AuthorityTests(PostgresCase):
   self.assertEqual(int(self.call('customer_status',{'customer_id':'fixture'})['open_total_minor']),int(expected)+200)
   self.call('artifact_ready',{'invoice_id':live,'object_key':'fixture/live.pdf','sha256':'b'*64,'renderer_version':'fixture','bytes':100})
   self.assertTrue(self.call('invoice_get',{'invoice_id':live})['deliveries'])
+
+
+ def test_11_local_adoption_required_and_history_excluded(self):
+  with psycopg.connect(self.owner_dsn) as c:
+   c.execute("UPDATE invoicing.receiving_accounts SET reference_mode='banksync' WHERE app_id='second-consumer'; UPDATE invoicing.reference_namespaces SET ready=false WHERE physical_account_id='second-consumer-physical'")
+  id=self.create('test:adoption',app='second-consumer')
+  with self.assertRaisesRegex(psycopg.errors.RaiseException,'reference_history_adoption_required'):
+   self.call('service_reference',{'invoice_id':id},'second-consumer')
+  with psycopg.connect(self.owner_dsn) as c:
+   c.execute("INSERT INTO invoicing.reference_namespaces VALUES('second-consumer-physical',true,repeat('b',64),now()) ON CONFLICT(physical_account_id) DO UPDATE SET ready=true,history_sha256=repeat('b',64),adopted_at=now()")
+   c.execute("INSERT INTO invoicing.reference_exclusions VALUES('second-consumer-physical','1000000000','historical:one','hash')")
+  reference=self.call('service_reference',{'invoice_id':id},'second-consumer')
+  self.assertEqual(reference['normalized_vs'],'1000000001')
+  self.assertEqual(reference,self.call('service_reference',{'invoice_id':id},'second-consumer'))
+  self.call('issue',{'invoice_id':id,'reference':reference},'second-consumer')
+
+ def test_12_concurrent_local_allocation_and_import(self):
+  ids=[self.create('test:parallel:'+str(n),app='second-consumer') for n in range(8)]
+  with ThreadPoolExecutor(8) as pool:
+   refs=list(pool.map(lambda id:self.call('service_reference',{'invoice_id':id},'second-consumer'),ids))
+  self.assertEqual(len({r['normalized_vs'] for r in refs}),8)
+  # Review-only generator imports a frozen remote commit for a pending invoice.
+  import hashlib,subprocess,sys
+  pending=self.create('test:remote-pending',app='second-consumer')
+  with psycopg.connect(self.owner_dsn) as c:
+   h=c.execute('SELECT payload_hash FROM invoicing.invoices WHERE id=%s',(pending,)).fetchone()[0]
+  row={'reservation_id':'frozen-remote','physical_account_id':'second-consumer-physical','app_id':'second-consumer','source_ref':'simulation:'+pending,'normalized_vs':'2000000000','payload_hash':h}
+  snapshot=Path(self.tmp.name)/'snapshot.json';snapshot.write_text(json.dumps([{'results':[row]}]))
+  output=Path(self.tmp.name)/'adopt.sql'
+  subprocess.run([sys.executable,str(SERVICE.parents[1]/'scripts/adopt-bank-references.py'),'--snapshot',str(snapshot),'--expected-sha256',hashlib.sha256(snapshot.read_bytes()).hexdigest(),'--physical-account-id',row['physical_account_id'],'--output',str(output),'--history-reviewed'],check=True,capture_output=True)
+  with psycopg.connect(self.owner_dsn,autocommit=True) as c:c.execute(output.read_text())
+  reference=self.call('service_reference',{'invoice_id':pending},'second-consumer')
+  self.assertEqual(reference['reservation_id'],'frozen-remote')
+  self.assertEqual(reference['normalized_vs'],'2000000000')
+  self.call('issue',{'invoice_id':pending,'reference':reference},'second-consumer')
 
 def load_tests(loader,tests,pattern):return unittest.TestSuite(AuthorityTests(name) for name in AuthorityTests.__dict__ if name.startswith('test_'))

@@ -1,8 +1,8 @@
 # InvoiceSync
 
 Standalone invoicing Worker and public typed client. PostgreSQL RPC owns financial
-state; private R2 stores immutable PDFs. BankSync provides payment facts and is the
-default random-reference allocator. Explicit service/provided modes remain optional.
+state; private R2 stores immutable PDFs. BankSync provides payment facts. InvoiceSync owns permanent payment references
+in PostgreSQL; caller-provided symbols remain an explicit account mode.
 
 `@festapp/invoicesync` exports only the fetch/WebCrypto client; `/cloudflare` exports
 the independent bundled Worker. Tests use disposable PostgreSQL without importing

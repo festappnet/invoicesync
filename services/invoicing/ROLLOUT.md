@@ -206,3 +206,25 @@ that projection. Both historical simulations remain immutable and delivered,
 with no pending old delivery. No new invoice was fabricated for the open month.
 The existing two-minute CatalogPilot schedule closes completed months; October
 has no prior close snapshot, so its full settled usage remains eligible.
+
+
+## Local reference ownership - 2026-10-18
+
+Migration 005 removes InvoiceSync issuance's dependency on BankSync reservations.
+BankSync remains the authenticated bank-fact and account-health provider. Existing
+`banksync` account configurations retain their identity but allocate through owned
+SQL after history adoption; default new accounts use `service`. No issued invoice,
+number, artifact, payment or delivery history is rewritten.
+
+Ordered rollout: back up both authorities; apply 005; freeze/import the complete
+BankSync reference history with `scripts/adopt-bank-references.py` and its exact
+SHA-256; reconcile both existing claims and any pending remote reservations; retain
+the reviewed ten-digit range (Mendelio writers remain in their separate range);
+then deploy InvoiceSync before retiring the shared BankSync endpoint. The tool
+only writes reviewable SQL and never connects to production. A locked namespace
+fails closed with `reference_history_adoption_required`.
+
+Local validation: 12 real PostgreSQL tests, including concurrent allocation,
+collision exclusions and frozen pending-reservation adoption; actual Worker,
+independent public consumer and signed delivery tests. No live invoice or email
+is created as a release probe. Production effects must be recorded after execution.
