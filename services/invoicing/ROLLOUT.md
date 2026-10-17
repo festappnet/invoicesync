@@ -249,7 +249,7 @@ grants matched production. Ciphertext SHA-256:
 `55a74b1894f557cf43a4ee2c39c9f73bfc4aee6c31484adb1410c8e73a93bdc9`. After rollout, immutable invoice fields matched the backup for both rows: hashes
 of `snapshot`, `command`, and `payload_hash`, plus invoice number, reference,
 normalized symbol and amount. The two payment-claim rows and 28 invoice-line rows
-also matched their prechange hashes. The mutable full-row hash changed during the
-ordinary account-health refresh; it did not change the checked invoice snapshots,
-claims or lines. A current account-health observation is healthy at
+also matched their prechange hashes. A whole-row comparison differed; the
+immutable fields, claims and lines above matched. Account-health refresh was
+verified independently, with a healthy observation at
 `2026-10-17 23:30:39 UTC`; `/health` returned HTTP 200.
