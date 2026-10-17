@@ -228,3 +228,28 @@ Local validation: 12 real PostgreSQL tests, including concurrent allocation,
 collision exclusions and frozen pending-reservation adoption; actual Worker,
 independent public consumer and signed delivery tests. No live invoice or email
 is created as a release probe. Production effects must be recorded after execution.
+
+
+## Local reference cutover executed - 2026-10-17
+
+InvoiceSync canonical main `83f02a1d35e767c463e07f1be4fd9f2fea2f9849` deployed
+Worker version `cbe50e79-1963-4044-9ba3-6747e56d44b3` (bundle SHA-256
+`1cbe9aff07d49b811411be5e639c3dc87eb3d92e379656bb609b1cccc502c544`). Migration
+005 SHA-256 is `42c9d819d964b57bcfe958ca5d3a566cb5295a765a39d4cf0c2dedfead6993e0`.
+The CatalogPilot production database was verified by host identity before writes.
+After migration and adoption, the physical namespace is ready with frozen history
+digest `cf237025103559eb3f7835f17168a6cebd397ffd8d6c0a265fa1f524c4e47181`,
+4,757 permanent exclusions, two existing claims and next reference `1000000000`.
+Issued invoice count remains two. Public `/health` returned HTTP 200. No new invoice,
+email, bank reservation or provider replay was generated as a probe.
+
+Before migration, a scoped encrypted CatalogPilot dump covering `invoicing` and
+`invoicing_api` was restored locally with ACLs; all table counts and executor/gateway
+grants matched production. Ciphertext SHA-256:
+`55a74b1894f557cf43a4ee2c39c9f73bfc4aee6c31484adb1410c8e73a93bdc9`. After rollout, immutable invoice fields matched the backup for both rows: hashes
+of `snapshot`, `command`, and `payload_hash`, plus invoice number, reference,
+normalized symbol and amount. The two payment-claim rows and 28 invoice-line rows
+also matched their prechange hashes. The mutable full-row hash changed during the
+ordinary account-health refresh; it did not change the checked invoice snapshots,
+claims or lines. A current account-health observation is healthy at
+`2026-10-17 23:30:39 UTC`; `/health` returned HTTP 200.
