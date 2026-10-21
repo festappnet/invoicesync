@@ -1,0 +1,10 @@
+packages:
+  - "services/invoicing"
+  - "packages/invoicing-client"
+  - "packages/email-transport"
+
+enableGlobalVirtualStore: false
+
+allowBuilds:
+  esbuild: true
+  workerd: true

@@ -12,15 +12,15 @@ PostgreSQL binaries and psycopg. The commands below describe the original
 CatalogPilot integration test run, retained as migration provenance:
 
 ```sh
-npm ci --prefix packages/invoicing-client
-npm ci --prefix services/invoicing
-npm run build --prefix packages/invoicing-client
+pnpm --dir packages/invoicing-client install --frozen-lockfile
+pnpm --dir services/invoicing install --frozen-lockfile
+pnpm --dir packages/invoicing-client run build
 node --test packages/invoicing-client/tests/*.test.mjs
-npm run typecheck --prefix services/invoicing
-npm run build --prefix services/invoicing
+pnpm --dir services/invoicing run typecheck
+pnpm --dir services/invoicing run build
 PYTHONPATH=backend:backend/tests uv run --with 'psycopg[binary]' python -m unittest discover -s services/invoicing/tests -p 'test_*.py' -q
 PYTHONPATH=backend:backend/tests uv run --with 'psycopg[binary]' python -m unittest test_invoicing_cutover test_email_queue test_automation test_finance_report -q
-npm test --prefix services/invoicing
+pnpm --dir services/invoicing test
 uv run --with pymupdf --with zxing-cpp --with pillow python services/invoicing/tests/verify_pdf.py
 ```
 

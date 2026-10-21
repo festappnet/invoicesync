@@ -28,17 +28,12 @@
     "services/invoicing/migrations",
     "packages/email-transport/src"
   ],
-  "workspaces": [
-    "services/invoicing",
-    "packages/invoicing-client",
-    "packages/email-transport"
-  ],
   "scripts": {
-    "build": "npm run build --workspace packages/invoicing-client && npm run build --workspace services/invoicing && node scripts/package.mjs",
-    "typecheck": "npm run typecheck --workspace services/invoicing",
-    "test": "npm test --workspace services/invoicing && npm test --workspace packages/invoicing-client",
+    "build": "pnpm --filter ./packages/invoicing-client run build && pnpm --filter ./services/invoicing run build && node scripts/package.mjs",
+    "typecheck": "pnpm --filter ./services/invoicing run typecheck",
+    "test": "pnpm --filter ./services/invoicing test && pnpm --filter ./packages/invoicing-client test",
     "test:db": "python -m unittest discover -s services/invoicing/tests -p 'test_*.py' -q",
-    "prepack": "npm run build"
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@festapp/banksync": "0.4.0",
@@ -54,6 +49,8 @@
     "typescript": "5.9.3"
   },
   "engines": {
-    "node": ">=24"
-  }
+    "node": ">=24",
+    "pnpm": "11.24.0"
+  },
+  "packageManager": "pnpm@11.24.0"
 }
