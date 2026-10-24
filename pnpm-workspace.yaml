@@ -8,3 +8,6 @@ enableGlobalVirtualStore: false
 allowBuilds:
   esbuild: true
   workerd: true
+
+minimumReleaseAgeExclude:
+  - '@festapp/banksync@0.5.2'
