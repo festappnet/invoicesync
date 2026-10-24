@@ -253,3 +253,21 @@ also matched their prechange hashes. A whole-row comparison differed; the
 immutable fields, claims and lines above matched. Account-health refresh was
 verified independently, with a healthy observation at
 `2026-10-17 23:30:39 UTC`; `/health` returned HTTP 200.
+
+
+## BankSync security dependency update - 2026-10-24
+
+InvoiceSync runs the verified npm `@festapp/banksync@0.5.2` dependency from main
+`91eaabb0990277bc536175e8d06b5c52d1a850c1`, Worker version
+`4c86b173-1a69-4762-a171-d9c2775a76ae` at 100% traffic. Authenticated Cloudflare
+module readback matches the retained Wrangler dry-run SHA-256
+`420e396cf2e47aad88ee8473edd208d7e2695515e4b7ad8633e148c6d7201912`.
+The official private R2 restore kit at
+`catalogpilot/supabase/20261024T195253510095Z-e52a7373` passed archive/readback
+verification and contains both invoicing schemas; its ciphertext SHA-256 is
+`fbce5a9645b2213bc52810bb8aa7372a113389a174b7c600d349f75134c40457`.
+CI, typecheck/build, 11 JavaScript tests, 12 disposable PostgreSQL tests, PDF proof
+and the production dependency audit passed. Live health returns 200 and unsigned
+unmapped bank input returns 403 before RPC. Runtime bindings and the cron schedule
+are unchanged. No migrations, invoices, emails or synthetic billing events were
+created by the release checks.
