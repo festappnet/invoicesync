@@ -22,7 +22,16 @@ export async function banksyncReceive(request:Request,env:Env,transport:typeof f
  let envelope:any;for(const secret of w.bank_secrets){try{envelope=await verifyWebhook({secret,bodyBytes,eventVersion:'2',timestamp:request.headers.get('X-BankSync-Timestamp')??'',deliveryId:request.headers.get('X-BankSync-Delivery-Id')??'',signature:request.headers.get('X-BankSync-Signature')??''});break;}catch{}}
  if(!envelope||envelope.data.bank_account_id!==w.bank_account_id)throw new RpcError(403,'bank_signature_or_scope');
  const candidates=extractReferenceCandidates(envelope.data),symbols=new Set(candidates.map((v:any)=>String(v.vs??v.value??v).replace(/^0+(?=\d)/,'')));envelope.data.reference_conflict=symbols.size>1;
- return serviceRpc(env,w.token,'bank_receive',{envelope,instance_id:w.instance_id,consumer_id:w.consumer_id,payload_hash:await digest(bodyBytes)},transport);
+ try{return await serviceRpc(env,w.token,'bank_receive',{envelope,instance_id:w.instance_id,consumer_id:w.consumer_id,payload_hash:await digest(bodyBytes)},transport);}
+ catch(error){
+  // The sender has already passed signature and account checks. A rejected
+  // internal identity is a receiver dependency failure, eligible for retry.
+  if(error instanceof RpcError&&(error.status===401||error.status===403)){
+   console.error(JSON.stringify({event:'bank_receiver_dependency_failed',code:'credential_rejected',status:error.status}));
+   throw new RpcError(503,'bank_receiver_unavailable');
+  }
+  throw error;
+ }
 }
 export function createService(transport:typeof fetch=fetch){return {
  async fetch(request:Request,env:Env){try{const url=new URL(request.url);if(url.pathname==='/health')return Response.json({service:'invoicing',version:1,environment:env.ENVIRONMENT});if(request.method==='POST'&&url.pathname==='/webhooks/banksync')return Response.json(await banksyncReceive(request,env,transport));

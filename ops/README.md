@@ -51,6 +51,33 @@ Regression check (requires psycopg and native PostgreSQL 17):
 python -m unittest discover -s services/invoicing/tests -p 'test_credential_rotation.py' -q
 ```
 
+## Workstation publication with existing OAuth
+
+When a dedicated server publication token is unavailable, install
+`net.festapp.invoicesync-credentials.plist` in the workstation's
+`~/Library/LaunchAgents`. This runs `workstation_renewal.py` at login and every
+six hours with the existing refreshable Wrangler OAuth login. The database
+host still owns minting, exact-scope registration, pending state and checks.
+Only the updated workload binding travels through a captured SSH pipe; the
+signing key and Cloudflare OAuth credential remain on their respective machines.
+An interrupted publication retains the same pending identity for retry.
+
+This mode requires the workstation to be awake, logged in, and able to reach
+SSH/Cloudflare within the seven-day renewal window. Its log is
+`~/Library/Logs/invoicesync-credentials.log`; the host's `health.json` records
+the last actual authenticated check. Keep the server timer disabled in this
+mode. A dedicated server token can replace this mode by disabling the LaunchAgent,
+installing the protected API token and enabling the server timer.
+
+After signature verification, internal database 401/403 responses become HTTP
+503 with the safe `bank_receiver_unavailable` code. The sender's own invalid
+signature/account checks remain HTTP 403. Structured logs distinguish an
+internal credential rejection without recording tokens or bank payloads.
+
 The 2026-11-09 incident was one outgoing CZK 197 movement, delivery job 1035,
 transaction 1183, consumer `invoicesync`. Its internal credential expired on
 2026-11-03. BankSync polling and Festapp delivery continued independently.
+Recovery renewed only the exact registered internal scope, replayed the stable
+delivery ID through the audited endpoint, and obtained a durable receipt. The
+outgoing movement created no invoice allocation. Monitoring's BankSync delivery
+check recovered through fresh observations.

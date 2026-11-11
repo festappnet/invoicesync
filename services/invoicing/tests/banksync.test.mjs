@@ -56,4 +56,11 @@ test('pinned BankSync SDK preserves signed v2 facts, receipts and rejection befo
   assert.equal((await send(envelope, true)).status, 403);
   assert.equal((await send({...envelope, data: {...envelope.data, bank_account_id: 43}})).status, 403);
   assert.equal(calls.length, 2);
+  for(const status of [401,403]){
+    const rejected=createService(async()=>Response.json({code:status===401?'PGRST303':'42501',message:status===401?'JWT expired':'workload_revoked'},{status}));
+    const signed=await signWebhook({envelope,secret});
+    const response=await rejected.fetch(new Request('https://fixture.example/webhooks/banksync',{method:'POST',headers:signed.headers,body:signed.bodyBytes}),env);
+    assert.equal(response.status,503,'internal credential rejection must remain retryable after sender authentication');
+    assert.deepEqual(await response.json(),{error:'bank_receiver_unavailable'});
+  }
 });

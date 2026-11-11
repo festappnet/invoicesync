@@ -13,6 +13,9 @@ from postgres_case import PostgresCase
 spec = importlib.util.spec_from_file_location('rotation', Path(__file__).resolve().parents[3] / 'ops/rotate_credentials.py')
 rotation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rotation)
+client_spec = importlib.util.spec_from_file_location('client', Path(__file__).resolve().parents[3] / 'ops/workstation_renewal.py')
+client = importlib.util.module_from_spec(client_spec)
+client_spec.loader.exec_module(client)
 
 
 def token(claims):
@@ -84,3 +87,18 @@ class CredentialRotationTests(PostgresCase):
         verify.assert_called_once_with(state['workloads'][0]['token'])
         publish.assert_not_called()
         register.assert_not_called()
+
+    def test_renews_before_expiry_and_client_never_finalizes_failed_publication(self):
+        now = int(time.time())
+        state = {'workloads': [{'app_id': 'catalogpilot', 'bank_account_id': 191, 'token': token(claims(now + 6 * 86400))}]}
+        register = Mock()
+        result = rotation.rotate(state, now=now, signer=token, registrar=register, verify=Mock(side_effect=[RuntimeError('unregistered fixture'), None]), publish=Mock(), persist=Mock())
+        self.assertEqual(result['status'], 'renewed')
+        register.assert_called_once()
+        complete = Mock()
+        with self.assertRaises(TimeoutError):
+            client.run(prepare=Mock(return_value=state), publisher=Mock(side_effect=TimeoutError('lost HTTP response')), complete=complete)
+        complete.assert_not_called()
+        publisher = Mock()
+        self.assertEqual(client.run(prepare=Mock(return_value=state), publisher=publisher, complete=Mock(return_value=result))['status'], 'renewed')
+        publisher.assert_called_once_with(state['workloads'])
